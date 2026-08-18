@@ -1,3 +1,3 @@
 spring:
   application:
-    name: Application-Interview-Services
+    name: application-interview-service
