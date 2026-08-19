@@ -26,22 +26,22 @@ public class ApplicationController {
     public ApiResponse<ApplicationResponse> createApplication(@RequestParam UUID jobId, @RequestParam String firstName, @RequestParam String lastName, @RequestParam String email, @RequestParam(required = false) String phone, @RequestParam MultipartFile resume) {
         CreateApplicationRequest request = new CreateApplicationRequest(jobId, firstName, lastName, email, phone, resume);
         ApplicationResponse response = applicationService.createApplication(request);
-        return ApiResponse.success("Application submitted successfully", response);
+        return ApiResponse.success(HttpStatus.CREATED.value(), "Application submitted successfully", response);
     }
 
     @GetMapping
     public ApiResponse<List<ApplicationResponse>> getApplications() {
-        return ApiResponse.success("Applications retrieved successfully", applicationService.getApplications());
+        return ApiResponse.success(HttpStatus.OK.value(), "Applications retrieved successfully", applicationService.getApplications());
     }
 
     @GetMapping("/{applicationId}")
     public ApiResponse<ApplicationResponse> getApplication(@PathVariable UUID applicationId) {
-        return ApiResponse.success("Application retrieved successfully", applicationService.getApplication(applicationId));
+        return ApiResponse.success(HttpStatus.OK.value(), "Application retrieved successfully", applicationService.getApplication(applicationId));
     }
 
     @PatchMapping("/{applicationId}/status")
     public ApiResponse<ApplicationResponse> updateStatus(@PathVariable UUID applicationId, @Valid @RequestBody UpdateApplicationStatusRequest request) {
         ApplicationResponse response = applicationService.updateStatus(applicationId, request);
-        return ApiResponse.success("Application status updated successfully", response);
+        return ApiResponse.success(HttpStatus.OK.value(), "Application status updated successfully", response);
     }
 }

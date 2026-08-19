@@ -3,7 +3,6 @@ package org.example.applicationinterviewservices.client;
 import org.example.applicationinterviewservices.dto.response.JobResponse;
 import org.example.applicationinterviewservices.exception.ApplicationNotFoundException;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -22,10 +21,12 @@ public class JobServiceClient {
 
     public JobResponse getJob(UUID jobId) {
         try {
-            List<JobResponse> jobs = restClient.get()
+            JobServiceApiResponse response = restClient.get()
                     .uri("/api/v1/jobs")
                     .retrieve()
-                    .body(new ParameterizedTypeReference<List<JobResponse>>() {});
+                    .body(JobServiceApiResponse.class);
+
+            List<JobResponse> jobs = response == null ? List.of() : response.data();
 
             return jobs.stream()
                     .filter(job -> jobId.equals(job.id()))
@@ -36,4 +37,6 @@ public class JobServiceClient {
             throw new ApplicationNotFoundException("Job not found or job-service is unavailable");
         }
     }
+
+    private record JobServiceApiResponse(boolean success, int statusCode, String message, List<JobResponse> data) {}
 }

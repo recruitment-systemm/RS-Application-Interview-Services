@@ -24,38 +24,38 @@ public class InterviewController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<InterviewResponse> createInterview(@Valid @RequestBody CreateInterviewRequest request) {
         InterviewResponse response = interviewService.createInterview(request);
-        return ApiResponse.success("Interview scheduled successfully", response);
+        return ApiResponse.success(HttpStatus.CREATED.value(), "Interview scheduled successfully", response);
     }
 
     @GetMapping("/{id}")
     public ApiResponse<InterviewResponse> getInterview(@PathVariable UUID id) {
-        return ApiResponse.success("Interview retrieved successfully", interviewService.getInterview(id));
+        return ApiResponse.success(HttpStatus.OK.value(), "Interview retrieved successfully", interviewService.getInterview(id));
     }
 
     @GetMapping("/application/{applicationId}")
     public ApiResponse<List<InterviewResponse>> getApplicationInterviews(@PathVariable UUID applicationId) {
-        return ApiResponse.success("Interviews retrieved successfully", interviewService.getApplicationInterviews(applicationId));
+        return ApiResponse.success(HttpStatus.OK.value(), "Interviews retrieved successfully", interviewService.getApplicationInterviews(applicationId));
     }
 
     @GetMapping
     public ApiResponse<List<InterviewResponse>> getInterviews() {
-        return ApiResponse.success("Interviews retrieved successfully", interviewService.getOrganizationInterviews());
+        return ApiResponse.success(HttpStatus.OK.value(), "Interviews retrieved successfully", interviewService.getOrganizationInterviews());
     }
 
     @GetMapping("/interviewer/{interviewerId}")
     public ApiResponse<List<InterviewResponse>> getInterviewerInterviews(@PathVariable UUID interviewerId) {
-        return ApiResponse.success("Interviews retrieved successfully", interviewService.getInterviewerInterviews(interviewerId));
+        return ApiResponse.success(HttpStatus.OK.value(), "Interviews retrieved successfully", interviewService.getInterviewerInterviews(interviewerId));
     }
 
     @PatchMapping("/{id}/complete")
     public ApiResponse<InterviewResponse> completeInterview(@PathVariable UUID id, @Valid @RequestBody CompleteInterviewRequest request) {
         InterviewResponse response = interviewService.completeInterview(id, request);
-        return ApiResponse.success("Interview completed successfully", response);
+        return ApiResponse.success(HttpStatus.OK.value(), "Interview completed successfully", response);
     }
 
     @PatchMapping("/{id}/cancel")
     public ApiResponse<InterviewResponse> cancelInterview(@PathVariable UUID id) {
         InterviewResponse response = interviewService.cancelInterview(id);
-        return ApiResponse.success("Interview cancelled successfully", response);
+        return ApiResponse.success(HttpStatus.OK.value(), "Interview cancelled successfully", response);
     }
 }
