@@ -8,10 +8,14 @@ import org.example.applicationinterviewservices.dto.response.ApplicationResponse
 import org.example.applicationinterviewservices.dto.response.JobResponse;
 import org.example.applicationinterviewservices.entity.ApplicationEntity;
 import org.example.applicationinterviewservices.entity.ApplicationStatus;
+import org.example.applicationinterviewservices.entity.InterviewEntity;
+import org.example.applicationinterviewservices.entity.InterviewPhase;
+import org.example.applicationinterviewservices.entity.InterviewStatus;
 import org.example.applicationinterviewservices.exception.ApplicationNotFoundException;
 import org.example.applicationinterviewservices.exception.DuplicateApplicationException;
 import org.example.applicationinterviewservices.exception.InvalidStatusTransitionException;
 import org.example.applicationinterviewservices.repository.ApplicationRepository;
+import org.example.applicationinterviewservices.repository.InterviewRepository;
 import org.example.applicationinterviewservices.security.EmployeePrincipal;
 import org.example.applicationinterviewservices.security.SecurityUtils;
 import org.springframework.stereotype.Service;
@@ -30,8 +34,10 @@ import java.util.regex.Pattern;
 public class ApplicationService {
 
     private final ApplicationRepository applicationRepository;
+    private final InterviewRepository interviewRepository;
     private final CloudinaryService cloudinaryService;
     private final JobServiceClient jobServiceClient;
+    private final EmailService emailService;
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
@@ -88,7 +94,11 @@ public class ApplicationService {
                 .status(ApplicationStatus.SOURCED)
                 .build();
 
-        return toResponse(applicationRepository.save(application));
+        ApplicationEntity savedApplication = applicationRepository.save(application);
+
+        emailService.sendApplicationReceivedEmail(savedApplication, job.title());
+
+        return toResponse(savedApplication);
     }
 
     @Transactional(readOnly = true)
@@ -97,6 +107,14 @@ public class ApplicationService {
         EmployeePrincipal principal = SecurityUtils.currentEmployee();
 
         return applicationRepository.findAllByOrganizationId(principal.organizationId())
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ApplicationResponse> getAllApplications() {
+        return applicationRepository.findAll()
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -121,9 +139,18 @@ public class ApplicationService {
 
         validateTransition(application.getStatus(), request.status());
 
+        if (request.status() == ApplicationStatus.HIRED) {
+            requireAllInterviewsPassed(application.getId());
+        }
+
         application.setStatus(request.status());
 
-        return toResponse(applicationRepository.save(application));
+        ApplicationEntity savedApplication = applicationRepository.save(application);
+
+        String jobTitle = jobServiceClient.getJob(savedApplication.getJobId()).title();
+        emailService.sendApplicationStatusEmail(savedApplication, jobTitle);
+
+        return toResponse(savedApplication);
     }
 
     private void validateApplicationRequest(CreateApplicationRequest request) {
@@ -160,6 +187,31 @@ public class ApplicationService {
 
         if (allowed == null || !allowed.contains(next)) {
             throw new InvalidStatusTransitionException("Cannot transition application from " + current + " to " + next);
+        }
+    }
+
+    /**
+     * A candidate can only be hired once every interview phase has a
+     * completed, passed attempt — otherwise HR could move Interview →
+     * Hired directly from the board without any interview ever taking
+     * place. Mirrors the "latest attempt wins" rule already used by
+     * {@code InterviewService.requirePhaseCompleted} (a phase can have a
+     * cancelled attempt followed by a rescheduled one).
+     */
+    private void requireAllInterviewsPassed(UUID applicationId) {
+        for (InterviewPhase phase : InterviewPhase.values()) {
+            List<InterviewEntity> attempts =
+                    interviewRepository.findByApplicationIdAndPhaseOrderByCreatedAtDesc(applicationId, phase);
+
+            boolean completedAndPassed = !attempts.isEmpty()
+                    && attempts.get(0).getStatus() == InterviewStatus.COMPLETED
+                    && Boolean.TRUE.equals(attempts.get(0).getPassed());
+
+            if (!completedAndPassed) {
+                throw new InvalidStatusTransitionException(
+                        "Cannot hire this candidate until every interview round has been completed and passed"
+                );
+            }
         }
     }
 

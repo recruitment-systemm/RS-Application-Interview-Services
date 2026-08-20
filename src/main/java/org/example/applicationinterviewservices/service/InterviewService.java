@@ -13,6 +13,7 @@ import org.example.applicationinterviewservices.exception.ApplicationNotFoundExc
 import org.example.applicationinterviewservices.exception.DuplicateInterviewException;
 import org.example.applicationinterviewservices.exception.InterviewNotFoundException;
 import org.example.applicationinterviewservices.exception.InvalidInterviewPhaseException;
+import org.example.applicationinterviewservices.client.JobServiceClient;
 import org.example.applicationinterviewservices.repository.ApplicationRepository;
 import org.example.applicationinterviewservices.repository.InterviewRepository;
 import org.example.applicationinterviewservices.security.EmployeePrincipal;
@@ -30,6 +31,8 @@ public class InterviewService {
 
     private final InterviewRepository interviewRepository;
     private final ApplicationRepository applicationRepository;
+    private final JobServiceClient jobServiceClient;
+    private final EmailService emailService;
 
     @Transactional
     public InterviewResponse createInterview(CreateInterviewRequest request) {
@@ -63,7 +66,12 @@ public class InterviewService {
                 .passed(null)
                 .build();
 
-        return toResponse(interviewRepository.save(interview));
+        InterviewEntity savedInterview = interviewRepository.save(interview);
+
+        String jobTitle = jobServiceClient.getJob(application.getJobId()).title();
+        emailService.sendInterviewScheduledEmail(application, savedInterview, jobTitle);
+
+        return toResponse(savedInterview);
     }
 
     @Transactional(readOnly = true)
@@ -111,7 +119,8 @@ public class InterviewService {
     public InterviewResponse cancelInterview(UUID interviewId) {
         EmployeePrincipal principal = SecurityUtils.currentEmployee();
         InterviewEntity interview = findInterview(interviewId);
-        applicationRepository.findByIdAndOrganizationId(interview.getApplicationId(), principal.organizationId())
+        ApplicationEntity application = applicationRepository
+                .findByIdAndOrganizationId(interview.getApplicationId(), principal.organizationId())
                 .orElseThrow(() -> new InterviewNotFoundException("Interview not found"));
 
         if (interview.getStatus() != InterviewStatus.SCHEDULED) {
@@ -119,7 +128,12 @@ public class InterviewService {
         }
 
         interview.setStatus(InterviewStatus.CANCELLED);
-        return toResponse(interviewRepository.save(interview));
+        InterviewEntity savedInterview = interviewRepository.save(interview);
+
+        String jobTitle = jobServiceClient.getJob(application.getJobId()).title();
+        emailService.sendInterviewCancelledEmail(application, savedInterview, jobTitle);
+
+        return toResponse(savedInterview);
     }
 
     @Transactional
@@ -137,19 +151,25 @@ public class InterviewService {
         interview.setPassed(request.passed());
         interview.setNotes(request.notes());
         InterviewEntity savedInterview = interviewRepository.save(interview);
-        applyInterviewResult(application, savedInterview);
+
+        String jobTitle = jobServiceClient.getJob(application.getJobId()).title();
+        emailService.sendInterviewResultEmail(application, savedInterview, jobTitle);
+
+        applyInterviewResult(application, savedInterview, jobTitle);
         return toResponse(savedInterview);
     }
 
-    private void applyInterviewResult(ApplicationEntity application, InterviewEntity interview) {
+    private void applyInterviewResult(ApplicationEntity application, InterviewEntity interview, String jobTitle) {
         if (Boolean.FALSE.equals(interview.getPassed())) {
             application.setStatus(ApplicationStatus.REJECTED);
-            applicationRepository.save(application);
+            ApplicationEntity savedApplication = applicationRepository.save(application);
+            emailService.sendApplicationStatusEmail(savedApplication, jobTitle);
             return;
         }
         if (interview.getPhase() == InterviewPhase.TECHNICAL) {
             application.setStatus(ApplicationStatus.HIRED);
-            applicationRepository.save(application);
+            ApplicationEntity savedApplication = applicationRepository.save(application);
+            emailService.sendApplicationStatusEmail(savedApplication, jobTitle);
         }
     }
 

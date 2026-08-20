@@ -49,7 +49,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
             UUID employeeId = UUID.fromString(claims.getSubject());
-            UUID organizationId = UUID.fromString(claims.get("organizationId", String.class));
+            String organizationIdClaim = claims.get("organizationId", String.class);
+            UUID organizationId = organizationIdClaim != null ? UUID.fromString(organizationIdClaim) : null;
             String role = claims.get("role", String.class);
             String sessionIdClaim = claims.get("sessionId", String.class);
             UUID sessionId = sessionIdClaim != null ? UUID.fromString(sessionIdClaim) : null;

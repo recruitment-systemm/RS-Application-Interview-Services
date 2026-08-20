@@ -34,6 +34,11 @@ public class ApplicationController {
         return ApiResponse.success(HttpStatus.OK.value(), "Applications retrieved successfully", applicationService.getApplications());
     }
 
+    @GetMapping("/admin/all")
+    public ApiResponse<List<ApplicationResponse>> getAllApplications() {
+        return ApiResponse.success(HttpStatus.OK.value(), "All applications retrieved successfully", applicationService.getAllApplications());
+    }
+
     @GetMapping("/{applicationId}")
     public ApiResponse<ApplicationResponse> getApplication(@PathVariable UUID applicationId) {
         return ApiResponse.success(HttpStatus.OK.value(), "Application retrieved successfully", applicationService.getApplication(applicationId));
