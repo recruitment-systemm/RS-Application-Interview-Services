@@ -1,0 +1,12 @@
+spring:
+  config:
+    activate:
+      on-profile:
+        - docker
+
+  datasource:
+    url: jdbc:postgresql://application-interview-db:5432/application-service
+
+services:
+  job-service:
+    url: http://job-service:8082
